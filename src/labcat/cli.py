@@ -56,7 +56,7 @@ def main(argv: list[str] | None = None) -> None:
             tls = {"ssl_certfile": str(cert), "ssl_keyfile": str(key)}
         if not settings.auth_enabled:
             print("Slack login is off (no LABCAT_SLACK_CLIENT_ID/SECRET): every change is made as", settings.user)
-        uvicorn.run("labcat.web:app_factory", factory=True, host=args.host, port=args.port, reload=args.reload, **tls)
+        uvicorn.run("labcat.web:create_app", factory=True, host=args.host, port=args.port, reload=args.reload, **tls)
     elif args.cmd == "validate":
         cat = Catalog(root, GitRepo(root, settings.committer_name, settings.committer_email))
         cat.reload()

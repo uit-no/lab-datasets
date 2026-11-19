@@ -572,4 +572,4 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 
 def app_factory() -> FastAPI:
-    return create_app()
+    return create_app(load_settings(production=True))

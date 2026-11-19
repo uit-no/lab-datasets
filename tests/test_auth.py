@@ -7,8 +7,55 @@ from fastapi.testclient import TestClient
 from labcat import auth
 from labcat.config import Settings, read_env_file
 from labcat.store import person_id_from_name
+from labcat.web import app_factory, create_app
 
 TEAM = "T0LAB"
+
+
+@pytest.fixture
+def production_env(repo, monkeypatch):
+    env = {
+        "LABCAT_DATA": str(repo),
+        "LABCAT_SLACK_CLIENT_ID": "123.456",
+        "LABCAT_SLACK_CLIENT_SECRET": "test-client-secret",
+        "LABCAT_SLACK_TEAM_ID": TEAM,
+        "LABCAT_SECRET_KEY": "test-session-key",
+        "LABCAT_BASE_URL": "https://datasets.example.org",
+    }
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    return env
+
+
+def test_production_factory_requires_environment(production_env, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("\n".join(f"{key}={value}" for key, value in production_env.items()))
+    for key in production_env:
+        with monkeypatch.context() as patch:
+            patch.delenv(key)
+            with pytest.raises(SystemExit, match=f"Missing required production environment variables: {key}$"):
+                app_factory()
+
+
+def test_production_factory_rejects_blank_settings(production_env, monkeypatch):
+    monkeypatch.setenv("LABCAT_SLACK_CLIENT_SECRET", "   ")
+    with pytest.raises(SystemExit, match="LABCAT_SLACK_CLIENT_SECRET"):
+        app_factory()
+
+
+@pytest.mark.parametrize("url", ["http://datasets.example.org", "https://", "https://datasets.example.org/path"])
+def test_production_factory_requires_https_origin(production_env, monkeypatch, url):
+    monkeypatch.setenv("LABCAT_BASE_URL", url)
+    with pytest.raises(SystemExit, match="LABCAT_BASE_URL must be an HTTPS origin"):
+        app_factory()
+
+
+def test_production_factory_requires_login_and_sets_secure_cookie(production_env):
+    client = TestClient(app_factory(), base_url=production_env["LABCAT_BASE_URL"], follow_redirects=False)
+    assert client.post("/new", data={}).status_code == 401
+    r = client.get("/auth/slack")
+    assert r.status_code == 303
+    assert "secure" in r.headers["set-cookie"].lower().split("; ")
 
 
 def slack_api(userinfo):
@@ -30,8 +77,6 @@ def make_client(repo, monkeypatch):
         monkeypatch.setattr(auth.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(slack_api(userinfo)), **kw))
         settings = Settings(data_dir=repo, user="matthias", slack_client_id="123.456", slack_client_secret="s3cret",
                             slack_team_id=team_id, secret_key="test-key")
-        from labcat.web import create_app
-
         return TestClient(create_app(settings), follow_redirects=False)
 
     return make

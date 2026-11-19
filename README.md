@@ -78,10 +78,42 @@ Before the first deployment:
    that path in App Service. The app won't start without the Git checkout.
    Configure Git credentials on the Web App for catalog sync; the workflow's
    Azure credentials are only for deployment.
-4. Before exposing the app publicly, set the Slack credentials, workspace ID,
-   session secret, and HTTPS `LABCAT_BASE_URL` in App Service. Without the Slack
-   credentials, the app permits edits without signing in. Register
-   `<LABCAT_BASE_URL>/auth/callback` in the Slack app.
+4. In App Service, enable **HTTPS Only** and set these required environment
+   variables under **Environment variables**:
+   - `LABCAT_DATA`: path to the catalog Git checkout.
+   - `LABCAT_SLACK_CLIENT_ID` and `LABCAT_SLACK_CLIENT_SECRET`: Slack app credentials.
+   - `LABCAT_SLACK_TEAM_ID`: the only Slack workspace allowed to sign in.
+   - `LABCAT_SECRET_KEY`: a stable, randomly generated session signing key.
+   - `LABCAT_BASE_URL`: the public HTTPS origin, e.g. `https://datasets.lab.uit.no`.
+     Register `<LABCAT_BASE_URL>/auth/callback` in the Slack app.
+
+   The production startup command refuses to start if any of these are missing
+   or blank, or if the base URL is not an HTTPS origin. It reads these settings
+   from the environment, not `.env`. Use `labcat serve` for local development.
+
+### Git checkout ownership on App Service
+
+Make sure Git is available in the runtime image. Prefer cloning the catalog
+checkout as the account that runs the web app, so no `safe.directory` exception
+is needed. From a shell running as that same account, test the checkout with
+`git -C "$LABCAT_DATA" status --short`.
+
+If Git reports dubious ownership and the ownership mismatch is intentional,
+first verify that the directory is the expected checkout and is writable only
+by trusted accounts. Then, as the runtime user, configure the exact checkout
+once (substitute your actual path):
+
+```sh
+checkout=$(realpath -e /home/labcat-data) &&
+  git config --global --fixed-value --replace-all safe.directory "$checkout" "$checkout"
+```
+
+This adds the path if absent and replaces duplicate entries for that path if
+rerun, without modifying exceptions for other checkouts. Never use `*`. If the
+runtime user's global Git config is not persistent across container recreation,
+fix checkout ownership instead or provision the exception in a protected,
+persistent global config read by the app. Remove the `git config --global --add`
+line from the startup command once the checkout works under the runtime user.
 
 ## Adding datasets
 
