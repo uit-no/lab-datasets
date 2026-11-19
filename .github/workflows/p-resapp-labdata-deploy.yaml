@@ -19,26 +19,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Python version comes from .python-version; it must match the
+      # runtime configured on the Azure Web App.
       - name: Set up uv and Python
         uses: astral-sh/setup-uv@v7
-        with:
-          python-version: '3.12'
 
       - name: Run tests
         run: uv run --locked pytest
 
       - name: Build deployment ZIP
         run: |
+          PY=$(cat .python-version)
           uv build --wheel --out-dir "$RUNNER_TEMP/wheels"
           uv export --locked --no-dev --no-emit-project \
             --output-file "$RUNNER_TEMP/requirements.txt"
-          uv pip install --python-version 3.12 --only-binary :all: \
+          uv pip install --python-version "$PY" --only-binary :all: \
             --require-hashes --target "$RUNNER_TEMP/package" \
             -r "$RUNNER_TEMP/requirements.txt"
-          uv pip install --python-version 3.12 --no-deps \
+          uv pip install --python-version "$PY" --no-deps \
             --target "$RUNNER_TEMP/package" "$RUNNER_TEMP"/wheels/*.whl
           cd "$RUNNER_TEMP/package"
-          uv run --no-project --python 3.12 python -c "from labcat.web import app_factory"
+          uv run --no-project --python "$PY" python -c "from labcat.web import app_factory"
           zip -qr "$RUNNER_TEMP/labcat-webapp.zip" .
 
       - name: Upload deployment ZIP
