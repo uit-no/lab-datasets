@@ -19,6 +19,17 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
+
+
+PRODUCTION_REQUIRED = (
+    "LABCAT_DATA",
+    "LABCAT_SLACK_CLIENT_ID",
+    "LABCAT_SLACK_CLIENT_SECRET",
+    "LABCAT_SLACK_TEAM_ID",
+    "LABCAT_SECRET_KEY",
+    "LABCAT_BASE_URL",
+)
 
 
 @dataclass(frozen=True)
@@ -54,8 +65,29 @@ def read_env_file(path: Path) -> dict[str, str]:
     return out
 
 
-def load_settings() -> Settings:
-    env = read_env_file(Path(".env")) | dict(os.environ)
+def _is_https_origin(value: str) -> bool:
+    if not value.startswith("https://") or any(c.isspace() or ord(c) < 32 or c in "\\?#" for c in value):
+        return False
+    try:
+        url = urlsplit(value)
+        return bool(
+            url.hostname and url.username is None and url.path in ("", "/")
+            and (url.port is None or url.port > 0)
+        )
+    except ValueError:
+        return False
+
+
+def load_settings(*, production: bool = False) -> Settings:
+    if production:
+        env = dict(os.environ)
+        missing = [key for key in PRODUCTION_REQUIRED if not env.get(key, "").strip()]
+        if missing:
+            raise SystemExit("Missing required production environment variables: " + ", ".join(missing))
+        if not _is_https_origin(env["LABCAT_BASE_URL"]):
+            raise SystemExit("LABCAT_BASE_URL must be an HTTPS origin, e.g. https://datasets.example.org")
+    else:
+        env = read_env_file(Path(".env")) | dict(os.environ)
 
     def get(key: str) -> str | None:
         return env.get(key) or None
