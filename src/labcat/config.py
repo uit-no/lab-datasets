@@ -1,6 +1,11 @@
 """Settings, read from environment variables (and from a `.env` file in the working directory).
 
 LABCAT_DATA                 path of the catalog data repo (default: ./data)
+LABCAT_DATA_REMOTE          GitHub address of the data repo; if LABCAT_DATA is missing or empty
+                            at startup, it is cloned from here
+LABCAT_GIT_TOKEN            GitHub token for pulling and pushing the data repo (e.g. a
+                            fine-grained token with read/write Contents access to that repo only);
+                            if empty, git's own credentials are used
 LABCAT_USER                 person id that all edits are attributed to when Slack login is off
                             (development; default: matthias)
 LABCAT_SLACK_CLIENT_ID      Slack app credentials; when both are set, everyone must sign in
@@ -45,6 +50,8 @@ class Settings:
     secret_key: str | None = None
     base_url: str | None = None
     admins: tuple[str, ...] = ()
+    data_remote: str | None = None
+    git_token: str | None = None
 
     @property
     def auth_enabled(self) -> bool:
@@ -102,4 +109,6 @@ def load_settings(*, production: bool = False) -> Settings:
         base_url=get("LABCAT_BASE_URL"),
         admins=tuple(x.strip() for x in (get("LABCAT_ADMINS") or "").split(",") if x.strip()),
         pull_interval=int(get("LABCAT_PULL_INTERVAL") or 600),
+        data_remote=get("LABCAT_DATA_REMOTE"),
+        git_token=get("LABCAT_GIT_TOKEN"),
     )

@@ -74,3 +74,31 @@ def test_admin_page_and_sync_button(repo, remote, tmp_path):
     user = TestClient(create_app(Settings(data_dir=repo, user="matthias")), follow_redirects=False)
     assert user.get("/admin").status_code == 403 and user.post("/admin/sync").status_code == 403
     assert 'href="/admin"' not in user.get("/").text
+
+
+def test_token_answers_credential_requests(cat):
+    from labcat.gitrepo import GitRepo
+
+    repo = GitRepo(cat.root, "Lab catalog", "catalog@lab.local", token="secret-token")
+    out = subprocess.run(["git", "credential", "fill"], input="protocol=https\nhost=github.com\n\n",
+                         env=repo.env(), capture_output=True, text=True, check=True).stdout
+    assert "username=x-access-token" in out and "password=secret-token" in out
+
+
+def test_app_clones_missing_data_repo(repo, remote, tmp_path):
+    from labcat.config import Settings
+    from labcat.web import create_app
+
+    target = tmp_path / "clone" / "data"
+    create_app(Settings(data_dir=target, user="matthias", data_remote=str(remote), pull_interval=0))
+    assert (target / ".git").exists()
+    assert git(target, "rev-parse", "HEAD") == git(repo, "rev-parse", "HEAD")
+
+
+def test_clone_refuses_non_empty_dir(tmp_path):
+    from labcat.gitrepo import GitError, GitRepo
+
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "x").write_text("x")
+    with pytest.raises(GitError):
+        GitRepo(tmp_path / "data", "n", "e").clone(str(tmp_path / "nowhere.git"))

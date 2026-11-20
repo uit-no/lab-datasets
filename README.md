@@ -77,14 +77,18 @@ Before the first deployment:
    ```sh
    python -m uvicorn labcat.web:app_factory --factory --host 0.0.0.0 --port 8000
    ```
-3. Clone the catalog data repository into a persistent path outside the
-   deployment directory, such as `/home/labcat-data`, and set `LABCAT_DATA` to
-   that path in App Service. The app won't start without the Git checkout.
-   Configure Git credentials on the Web App for catalog sync; the workflow's
-   Azure credentials are only for deployment.
+3. Pick a persistent path outside the deployment directory for the catalog data
+   checkout, such as `/home/labcat-data`, and set `LABCAT_DATA` to it. Set
+   `LABCAT_DATA_REMOTE` to the data repository's HTTPS address and
+   `LABCAT_GIT_TOKEN` to a fine-grained GitHub token with read/write *Contents*
+   access to that repository only. If the checkout is missing, the app clones it
+   at startup; it then pulls and pushes with the token. The workflow's Azure
+   credentials are only for deployment.
 4. In App Service, enable **HTTPS Only** and set these required environment
    variables under **Environment variables**:
    - `LABCAT_DATA`: path to the catalog Git checkout.
+   - `LABCAT_DATA_REMOTE` and `LABCAT_GIT_TOKEN` (see step 3; not checked at
+     startup, since an existing checkout with its own credentials also works).
    - `LABCAT_SLACK_CLIENT_ID` and `LABCAT_SLACK_CLIENT_SECRET`: Slack app credentials.
    - `LABCAT_SLACK_TEAM_ID`: the only Slack workspace allowed to sign in.
    - `LABCAT_SECRET_KEY`: a stable, randomly generated session signing key.
@@ -97,9 +101,9 @@ Before the first deployment:
 
 ### Git checkout ownership on App Service
 
-Make sure Git is available in the runtime image. Prefer cloning the catalog
-checkout as the account that runs the web app, so no `safe.directory` exception
-is needed. From a shell running as that same account, test the checkout with
+Make sure Git is available in the runtime image. When the app clones the
+checkout itself, it belongs to the account that runs the web app, so no
+`safe.directory` exception is needed. From a shell running as that same account, test the checkout with
 `git -C "$LABCAT_DATA" status --short`.
 
 If Git reports dubious ownership and the ownership mismatch is intentional,

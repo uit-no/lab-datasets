@@ -13,6 +13,9 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 SEP = "\x1f"
+# Answers git's credential requests with the token from the environment, so the token never
+# ends up in a URL, in .git/config or in error messages.
+CREDENTIAL_HELPER = '!f() { test "$1" = get && echo username=x-access-token && echo "password=$LABCAT_GIT_TOKEN"; }; f'
 REC = "\x1e"
 
 
@@ -40,15 +43,28 @@ def blob_sha(content: bytes) -> str:
 
 
 class GitRepo:
-    def __init__(self, path: Path, committer_name: str, committer_email: str):
+    def __init__(self, path: Path, committer_name: str, committer_email: str, token: str | None = None):
         self.path = Path(path)
         self.committer_name = committer_name
         self.committer_email = committer_email
+        self.token = token  # GitHub token for pull/push; None = use git's own credentials
 
-    def run(self, *args: str, check: bool = True, env: dict | None = None) -> str:
-        full_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", **(env or {})}
+    def env(self, extra: dict | None = None) -> dict:
+        env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+        if self.token:
+            env |= {
+                "LABCAT_GIT_TOKEN": self.token,
+                "GIT_CONFIG_COUNT": "2",
+                "GIT_CONFIG_KEY_0": "credential.helper",  # empty value: forget other helpers
+                "GIT_CONFIG_VALUE_0": "",
+                "GIT_CONFIG_KEY_1": "credential.helper",
+                "GIT_CONFIG_VALUE_1": CREDENTIAL_HELPER,
+            }
+        return env | (extra or {})
+
+    def run(self, *args: str, check: bool = True, env: dict | None = None, cwd: Path | None = None) -> str:
         res = subprocess.run(
-            ["git", *args], cwd=self.path, capture_output=True, text=True, env=full_env
+            ["git", *args], cwd=cwd or self.path, capture_output=True, text=True, env=self.env(env)
         )
         if check and res.returncode != 0:
             raise GitError(f"git {' '.join(args)} failed: {res.stderr.strip()}")
@@ -78,6 +94,13 @@ class GitRepo:
         return res.stdout if res.returncode == 0 else None
 
     # --- sync ------------------------------------------------------------
+    def clone(self, url: str) -> None:
+        """Clone `url` into this repo's (missing or empty) directory."""
+        if self.path.exists() and any(self.path.iterdir()):
+            raise GitError(f"{self.path} is not empty and not a git repo")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.run("clone", "--quiet", url, str(self.path), cwd=self.path.parent)
+
     def pull(self) -> None:
         """Rebase local commits onto the remote. On a conflict, give up cleanly (nothing is lost)."""
         if not self.has_remote():

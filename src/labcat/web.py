@@ -24,7 +24,7 @@ from markupsafe import Markup
 
 from . import auth, completeness, doi, forms, skill, yamlio
 from .config import Settings, load_settings
-from .gitrepo import GitRepo
+from .gitrepo import GitError, GitRepo
 from .models import ID_PATTERN, LOCATION_KINDS, SHARING, STATUSES, Dataset, Person, slack_channel_url
 from .store import Catalog, Conflict, StoreError
 
@@ -53,9 +53,18 @@ def time_ago(iso: str) -> str:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
-    git = GitRepo(settings.data_dir, settings.committer_name, settings.committer_email)
+    git = GitRepo(settings.data_dir, settings.committer_name, settings.committer_email, settings.git_token)
     if not git.is_repo():
-        raise SystemExit(f"No catalog data repo at {settings.data_dir}. Create one with: labcat init")
+        if not settings.data_remote:
+            raise SystemExit(
+                f"No catalog data repo at {settings.data_dir}. Create one with: labcat init, "
+                "or set LABCAT_DATA_REMOTE to clone it"
+            )
+        log.info("cloning the catalog data repo into %s", settings.data_dir)
+        try:
+            git.clone(settings.data_remote)
+        except GitError as e:
+            raise SystemExit(f"Could not clone the catalog data repo: {e}") from None
     cat = Catalog(settings.data_dir, git)
     cat.refresh()
 
