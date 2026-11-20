@@ -63,9 +63,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.P_RESAPP_DEPLOYMENT_ID_CLIENTID }}
-          tenant-id: ${{ secrets.P_RESAPP_DEPLOYMENT_ID_TENANTID }}
-          subscription-id: ${{ secrets.P_RESAPP_DEPLOYMENT_ID_SUBSCRIPTIONID }}
+          client-id: ${{ secrets.P_RESAPP_LABDATA_ID_CLIENTID }}
+          tenant-id: ${{ secrets.P_RESAPP_LABDATA_ID_TENANTID }}
+          subscription-id: ${{ secrets.P_RESAPP_LABDATA_ID_SUBSCRIPTIONID }}
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
