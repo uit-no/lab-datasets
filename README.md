@@ -82,7 +82,9 @@ Before the first deployment:
    `LABCAT_DATA_REMOTE` to the data repository's HTTPS address and
    `LABCAT_GIT_TOKEN` to a fine-grained GitHub token with read/write *Contents*
    access to that repository only. If the checkout is missing, the app clones it
-   at startup; it then pulls and pushes with the token. The workflow's Azure
+   at startup; it then pulls and pushes with the token. A checkout of another
+   repository (or one without a remote) is renamed to `<name>.old-<time>` and
+   replaced by a fresh clone. The workflow's Azure
    credentials are only for deployment.
 4. In App Service, enable **HTTPS Only** and set these required environment
    variables under **Environment variables**:

@@ -24,7 +24,7 @@ from markupsafe import Markup
 
 from . import auth, completeness, doi, forms, skill, yamlio
 from .config import Settings, load_settings
-from .gitrepo import GitError, GitRepo
+from .gitrepo import GitError, GitRepo, same_remote
 from .models import ID_PATTERN, LOCATION_KINDS, SHARING, STATUSES, Dataset, Person, slack_channel_url
 from .store import Catalog, Conflict, StoreError
 
@@ -54,6 +54,10 @@ def time_ago(iso: str) -> str:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
     git = GitRepo(settings.data_dir, settings.committer_name, settings.committer_email, settings.git_token)
+    if settings.data_remote and git.is_repo() and not same_remote(git.remote_url(), settings.data_remote):
+        # e.g. an empty catalog from `labcat init`, or a checkout swapped in from another slot
+        old = git.move_aside()
+        log.warning("%s is not a checkout of LABCAT_DATA_REMOTE; moved it to %s", settings.data_dir, old)
     if not git.is_repo():
         if not settings.data_remote:
             raise SystemExit(

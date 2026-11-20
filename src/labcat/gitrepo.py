@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import subprocess
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -40,6 +41,14 @@ class Commit:
 def blob_sha(content: bytes) -> str:
     """The SHA git would give this content as a blob (like `git hash-object`)."""
     return hashlib.sha1(b"blob %d\0" % len(content) + content).hexdigest()
+
+
+def same_remote(a: str | None, b: str | None) -> bool:
+    """Compare remote addresses, ignoring credentials, a trailing slash and `.git`."""
+    def norm(url: str) -> str:
+        return re.sub(r"//[^/@]+@", "//", url).rstrip("/").removesuffix(".git").lower()
+
+    return bool(a and b) and norm(a) == norm(b)
 
 
 class GitRepo:
@@ -124,6 +133,13 @@ class GitRepo:
             log.warning("push rejected, rebasing and retrying once")
             self.pull()
             self.run("push", "--quiet")
+
+    def move_aside(self) -> Path:
+        """Rename the checkout to <name>.old-<time>, so a fresh one can be cloned in its place."""
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        target = self.path.with_name(f"{self.path.name}.old-{stamp}")
+        self.path.rename(target)
+        return target
 
     def reset_to_remote(self) -> None:
         """Throw away everything local and match the remote (for sandbox copies)."""

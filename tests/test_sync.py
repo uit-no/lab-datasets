@@ -123,3 +123,31 @@ def test_sandbox_banner(repo):
 
     client = TestClient(create_app(Settings(data_dir=repo, user="matthias", sandbox=True)))
     assert "Test copy." in client.get("/").text
+
+
+def test_app_replaces_checkout_of_another_repo(remote, tmp_path):
+    from labcat.config import Settings
+    from labcat.store import init_data_repo
+    from labcat.web import create_app
+
+    other = tmp_path / "slot" / "data"
+    init_data_repo(other, ME)  # no remote, like a fresh `labcat init`
+    create_app(Settings(data_dir=other, user="matthias", data_remote=str(remote) + "/", pull_interval=0))
+    assert git(other, "rev-parse", "HEAD") == git(remote, "rev-parse", "HEAD")
+    assert len(list(other.parent.glob("data.old-*"))) == 1
+
+
+def test_app_keeps_matching_checkout(repo, remote, tmp_path):
+    from labcat.config import Settings
+    from labcat.web import create_app
+
+    create_app(Settings(data_dir=repo, user="matthias", data_remote=str(remote), pull_interval=0))
+    assert not list(repo.parent.glob("data.old-*"))
+
+
+def test_same_remote():
+    from labcat.gitrepo import same_remote
+
+    assert same_remote("https://github.com/a/b.git", "https://x:tok@github.com/A/b/")
+    assert not same_remote("https://github.com/a/b.git", "https://github.com/a/c.git")
+    assert not same_remote(None, "https://github.com/a/b.git")
