@@ -1,4 +1,4 @@
-name: Deploy labcat to Azure production
+name: Deploy labcat to Azure staging
 
 on:
   workflow_dispatch:
@@ -71,4 +71,5 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: p-resapp-labdata-webapp
+          slot-name: staging
           package: ${{ runner.temp }}/labcat-webapp.zip

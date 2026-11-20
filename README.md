@@ -57,16 +57,20 @@ To keep it running in the background, see [deploy/labcat.service](deploy/labcat.
 
 The [GitHub Actions workflow](.github/workflows/p-resapp-labdata-deploy.yaml) tests
 the app with `uv`, builds a ZIP with its locked runtime dependencies, and deploys
-it to the production slot of `p-resapp-labdata` on pushes to `main`. You can also
-run it manually from `main` in the Actions tab.
+it to the `staging` slot of `p-resapp-labdata-webapp` when run manually from
+`main` in the Actions tab. Validate the staging site at
+`p-resapp-labdata-webapp-staging`, then run the separate
+[swap workflow](.github/workflows/p-resapp-labdata-swap.yaml) from `main` to
+promote it to production.
 
 Before the first deployment:
 
 1. Configure Azure OIDC federation for the repository's `main` branch
    (`repo:uit-no/lab-datasets:ref:refs/heads/main`). Grant the federated identity
-   deployment access to the production Web App and set these GitHub Actions
-   secrets: `P_RESAPP_DEPLOYMENT_ID_CLIENTID`, `P_RESAPP_DEPLOYMENT_ID_TENANTID`,
-   and `P_RESAPP_DEPLOYMENT_ID_SUBSCRIPTIONID`.
+   permission to deploy to the staging slot, read the Web App, and swap slots.
+   Set these GitHub Actions secrets: `P_RESAPP_DEPLOYMENT_ID_CLIENTID`,
+   `P_RESAPP_DEPLOYMENT_ID_TENANTID`, and
+   `P_RESAPP_DEPLOYMENT_ID_SUBSCRIPTIONID`.
 2. Set the Web App's stack to **Python 3.12 on Linux**. Set
    `SCM_DO_BUILD_DURING_DEPLOYMENT=false` because the runner builds the ZIP, and
    leave `WEBSITE_RUN_FROM_PACKAGE` unset. Set the startup command to:

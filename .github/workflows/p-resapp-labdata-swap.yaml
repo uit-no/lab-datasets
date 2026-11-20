@@ -1,0 +1,47 @@
+name: Swap labcat staging to production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p-resapp-labdata-production
+
+jobs:
+  swap:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.P_RESAPP_DEPLOYMENT_ID_CLIENTID }}
+          tenant-id: ${{ secrets.P_RESAPP_DEPLOYMENT_ID_TENANTID }}
+          subscription-id: ${{ secrets.P_RESAPP_DEPLOYMENT_ID_SUBSCRIPTIONID }}
+
+      - name: Find Web App resource group
+        id: app
+        run: |
+          resource_group=$(az webapp list \
+            --query "[?name=='p-resapp-labdata-webapp'].resourceGroup | [0]" \
+            --output tsv)
+          if [[ -z "$resource_group" ]]; then
+            echo "Could not find p-resapp-labdata-webapp in the subscription." >&2
+            exit 1
+          fi
+          echo "resource_group=$resource_group" >> "$GITHUB_OUTPUT"
+
+      - name: Swap staging slot into production
+        env:
+          RESOURCE_GROUP: ${{ steps.app.outputs.resource_group }}
+        run: |
+          az webapp deployment slot swap \
+            --resource-group "$RESOURCE_GROUP" \
+            --name p-resapp-labdata-webapp \
+            --slot staging \
+            --target-slot production
