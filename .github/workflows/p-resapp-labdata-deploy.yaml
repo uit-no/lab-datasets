@@ -1,9 +1,6 @@
 name: Deploy labcat to Azure production
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
