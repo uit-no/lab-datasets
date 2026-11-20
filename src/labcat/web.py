@@ -65,7 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             git.clone(settings.data_remote)
         except GitError as e:
             raise SystemExit(f"Could not clone the catalog data repo: {e}") from None
-    cat = Catalog(settings.data_dir, git)
+    cat = Catalog(settings.data_dir, git, sandbox=settings.sandbox)
     cat.refresh()
 
     app = FastAPI(title="labcat", docs_url=None, redoc_url=None)
@@ -118,6 +118,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "user": current_user(request),
                 "auth_enabled": settings.auth_enabled,
                 "sync_error": cat.sync_error,
+                "sandbox": settings.sandbox,
                 "is_admin": is_admin(request),
                 "user_picture": request.session.get("picture") if settings.auth_enabled else None,
                 "flash": unquote(flash) if flash else None,

@@ -98,6 +98,12 @@ Before the first deployment:
    The production startup command refuses to start if any of these are missing
    or blank, or if the base URL is not an HTTPS origin. It reads these settings
    from the environment, not `.env`. Use `labcat serve` for local development.
+5. Mark `LABCAT_BASE_URL`, `LABCAT_DATA` and `LABCAT_SANDBOX` as *deployment
+   slot settings*, so they stay with their slot when staging and production are
+   swapped. On the staging slot, set `LABCAT_BASE_URL` to the staging address and
+   `LABCAT_SANDBOX=1`: changes made there are never pushed, and each sync resets
+   its checkout to the GitHub version. Register the callback URL of both slots
+   in the Slack app.
 
 ### Git checkout ownership on App Service
 

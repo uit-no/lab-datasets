@@ -125,6 +125,13 @@ class GitRepo:
             self.pull()
             self.run("push", "--quiet")
 
+    def reset_to_remote(self) -> None:
+        """Throw away everything local and match the remote (for sandbox copies)."""
+        if not self.has_remote():
+            return
+        self.run("fetch", "--quiet")
+        self.run("reset", "--hard", "--quiet", "@{upstream}")
+
     def remote_url(self) -> str | None:
         """The remote's address, without any credentials in it."""
         url = self.run("remote", "get-url", "origin", check=False).strip()

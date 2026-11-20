@@ -102,3 +102,24 @@ def test_clone_refuses_non_empty_dir(tmp_path):
     (tmp_path / "data" / "x").write_text("x")
     with pytest.raises(GitError):
         GitRepo(tmp_path / "data", "n", "e").clone(str(tmp_path / "nowhere.git"))
+
+
+def test_sandbox_never_pushes_and_resets_on_sync(cat, repo, remote):
+    cat.sandbox = True
+    before = git(remote, "rev-parse", "HEAD")
+    cat.save_dataset(minimal(), ME, create=True)
+    assert git(remote, "rev-parse", "HEAD") == before
+    assert "2020-test-study" in cat.datasets
+    cat.sync()
+    assert cat.sync_error is None
+    assert git(repo, "rev-parse", "HEAD") == before
+    assert "2020-test-study" not in cat.datasets
+
+
+def test_sandbox_banner(repo):
+    from fastapi.testclient import TestClient
+    from labcat.config import Settings
+    from labcat.web import create_app
+
+    client = TestClient(create_app(Settings(data_dir=repo, user="matthias", sandbox=True)))
+    assert "Test copy." in client.get("/").text

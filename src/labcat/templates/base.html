@@ -60,7 +60,11 @@
     </div>
   </header>
 
-  {% if sync_error and user %}
+  {% if sandbox %}
+  <div class="sync-warning" role="status">
+    {{ icon("triangle-alert") }}<span><strong>Test copy.</strong> Changes made here are not saved to the real catalog and disappear at the next sync.</span>
+  </div>
+  {% elif sync_error and user %}
   <div class="sync-warning" role="status" title="{{ sync_error }}">
     {{ icon("triangle-alert") }}<span><strong>Not in sync with GitHub.</strong> Changes are saved here and will be uploaded once it works again. If this stays, please tell an admin.</span>
   </div>

@@ -17,6 +17,8 @@ LABCAT_BASE_URL             public address, e.g. https://datasets.lab.uit.no (de
                             from the request)
 LABCAT_ADMINS               person ids with access to the admin page, comma-separated (e.g. matthias)
 LABCAT_PULL_INTERVAL        seconds between automatic syncs with GitHub (default: 600; 0 = off)
+LABCAT_SANDBOX              1 = test copy (e.g. a staging slot): changes are never pushed, and each
+                            sync resets the data repo to the GitHub version
 """
 
 from __future__ import annotations
@@ -52,6 +54,7 @@ class Settings:
     admins: tuple[str, ...] = ()
     data_remote: str | None = None
     git_token: str | None = None
+    sandbox: bool = False
 
     @property
     def auth_enabled(self) -> bool:
@@ -111,4 +114,5 @@ def load_settings(*, production: bool = False) -> Settings:
         pull_interval=int(get("LABCAT_PULL_INTERVAL") or 600),
         data_remote=get("LABCAT_DATA_REMOTE"),
         git_token=get("LABCAT_GIT_TOKEN"),
+        sandbox=(get("LABCAT_SANDBOX") or "").lower() in ("1", "true", "yes"),
     )

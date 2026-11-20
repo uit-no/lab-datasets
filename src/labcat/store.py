@@ -100,9 +100,10 @@ def validation_errors(e: ValidationError) -> dict[str, str]:
 
 
 class Catalog:
-    def __init__(self, root: Path, git: GitRepo):
+    def __init__(self, root: Path, git: GitRepo, sandbox: bool = False):
         self.root = Path(root)
         self.git = git
+        self.sandbox = sandbox  # changes stay local and are discarded at the next sync
         self.lock = threading.RLock()
         self.sync_error: str | None = None  # last problem talking to the remote, shown in the UI
         self.last_sync: str | None = None  # ISO time of the last successful pull
@@ -234,13 +235,17 @@ class Catalog:
     def _commit(self, paths: list[str], message: str, author: Person) -> str:
         email = author.email or f"{author.id}@users.noreply.lab"
         sha = self.git.commit(paths, message, author.name, email)
-        self._sync_step(self.git.push)
+        if not self.sandbox:
+            self._sync_step(self.git.push)
         return sha
 
     def sync(self) -> None:
         """Pull changes from the remote and push anything still waiting (runs every minute)."""
         with self.lock:
-            if self._sync_step(self.git.pull):
+            if self.sandbox:
+                if self._sync_step(self.git.reset_to_remote):
+                    self.last_sync = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+            elif self._sync_step(self.git.pull):
                 self.last_sync = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
                 if self.git.unpushed():
                     self._sync_step(self.git.push)
