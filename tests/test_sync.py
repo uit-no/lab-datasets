@@ -106,7 +106,10 @@ def test_clone_refuses_non_empty_dir(tmp_path):
 
 
 def test_sandbox_never_pushes_and_resets_on_sync(cat, repo, remote):
+    from labcat.gitrepo import SANDBOX_EMAIL
+
     cat.sandbox = True
+    cat.git.committer_email = SANDBOX_EMAIL
     before = git(remote, "rev-parse", "HEAD")
     cat.save_dataset(minimal(), ME, create=True)
     assert git(remote, "rev-parse", "HEAD") == before
@@ -162,3 +165,46 @@ def test_about_links_https_data_repo(cat, repo):
     git(repo, "remote", "add", "origin", "https://github.com/cogneuro-uit/lab-datasets-data.git")
     client = TestClient(create_app(Settings(data_dir=repo, user="matthias", pull_interval=0)))
     assert 'href="https://github.com/cogneuro-uit/lab-datasets-data"' in client.get("/about").text
+
+
+def commit_as(repo, name, committer_email):
+    (repo / f"{name}.txt").write_text(name)
+    git(repo, "add", f"{name}.txt")
+    subprocess.run(["git", "-c", "user.name=T", "-c", f"user.email={committer_email}", "commit", "-qm", name],
+                   cwd=repo, check=True)
+
+
+def test_production_drops_sandbox_commits_but_keeps_real_ones(repo, remote):
+    from labcat.config import Settings
+    from labcat.gitrepo import SANDBOX_EMAIL
+    from labcat.web import create_app
+
+    commit_as(repo, "test-edit", SANDBOX_EMAIL)
+    commit_as(repo, "real-edit", "catalog@lab.local")
+    create_app(Settings(data_dir=repo, user="matthias", data_remote=str(remote), pull_interval=0))
+    subjects = git(repo, "log", "--format=%s", "@{upstream}..HEAD").split()
+    assert subjects == ["real-edit"]
+    assert not (repo / "test-edit.txt").exists()
+
+
+def test_sandbox_uploads_real_commits_before_reset(repo, remote):
+    from labcat.config import Settings
+    from labcat.gitrepo import SANDBOX_EMAIL
+    from labcat.web import create_app
+
+    commit_as(repo, "real-edit", "catalog@lab.local")
+    commit_as(repo, "test-edit", SANDBOX_EMAIL)
+    app = create_app(Settings(data_dir=repo, user="matthias", data_remote=str(remote), sandbox=True, pull_interval=0))
+    assert app.state.cat.sync_error is None
+    assert git(remote, "log", "-1", "--format=%s").strip() == "real-edit"
+    assert git(repo, "rev-parse", "HEAD") == git(remote, "rev-parse", "HEAD")
+
+
+def test_sandbox_commits_are_marked(repo, remote):
+    from labcat.config import Settings
+    from labcat.gitrepo import SANDBOX_EMAIL
+    from labcat.web import create_app
+
+    app = create_app(Settings(data_dir=repo, user="matthias", data_remote=str(remote), sandbox=True, pull_interval=0))
+    app.state.cat.save_dataset(minimal(), ME, create=True)
+    assert git(repo, "log", "-1", "--format=%ce").strip() == SANDBOX_EMAIL

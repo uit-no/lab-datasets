@@ -10,8 +10,8 @@
     <li><strong>Push</strong> the code to <span class="mono">main</span> of <a href="{{ gh }}" target="_blank" rel="noopener">uit-no/lab-datasets</a>.</li>
     <li><strong>Deploy to staging:</strong> run <a href="{{ gh }}/actions/workflows/p-resapp-labdata-deploy.yaml" target="_blank" rel="noopener">Deploy labcat to Azure staging</a>
         (<em>Run workflow</em>, branch <span class="mono">main</span>). It runs the tests first and takes about 2 minutes.</li>
-    <li><strong>Check</strong> <a href="{{ staging }}" target="_blank" rel="noopener">staging</a>: it shows a yellow “Test copy” banner. Look around, but
-        <strong>don't edit</strong>: the swap takes staging's files along, so test edits would reach production and GitHub.</li>
+    <li><strong>Check</strong> <a href="{{ staging }}" target="_blank" rel="noopener">staging</a>: it shows a yellow “Test copy” banner. Editing is fine:
+        test edits are never uploaded, are thrown away at the next sync, and are removed if a swap carries them into production.</li>
     <li><strong>Swap:</strong> run <a href="{{ gh }}/actions/workflows/p-resapp-labdata-swap.yaml" target="_blank" rel="noopener">Swap labcat staging to production</a>.
         The two slots trade places, code and files included.</li>
     <li><strong>Check</strong> <a href="{{ production }}" target="_blank" rel="noopener">production</a>: no banner, the catalog is there, and this page says <em>In sync</em>.

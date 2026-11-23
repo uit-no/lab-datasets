@@ -24,7 +24,7 @@ from markupsafe import Markup
 
 from . import auth, completeness, doi, forms, skill, yamlio
 from .config import Settings, load_settings
-from .gitrepo import GitError, GitRepo, same_remote
+from .gitrepo import SANDBOX_EMAIL, GitError, GitRepo, same_remote
 from .models import ID_PATTERN, LOCATION_KINDS, SHARING, STATUSES, Dataset, Person, slack_channel_url
 from .store import Catalog, Conflict, StoreError
 
@@ -53,7 +53,8 @@ def time_ago(iso: str) -> str:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
-    git = GitRepo(settings.data_dir, settings.committer_name, settings.committer_email, settings.git_token)
+    committer_email = SANDBOX_EMAIL if settings.sandbox else settings.committer_email
+    git = GitRepo(settings.data_dir, settings.committer_name, committer_email, settings.git_token)
     if settings.data_remote and git.is_repo() and not same_remote(git.remote_url(), settings.data_remote):
         # e.g. an empty catalog from `labcat init`, or a checkout swapped in from another slot
         old = git.move_aside()
@@ -70,6 +71,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except GitError as e:
             raise SystemExit(f"Could not clone the catalog data repo: {e}") from None
     cat = Catalog(settings.data_dir, git, sandbox=settings.sandbox)
+    # A slot swap moves the checkout along: staging may bring test edits, production unpushed real ones.
+    if git.has_remote():
+        if settings.sandbox:
+            cat.sync()
+        else:
+            try:
+                if n := git.drop_sandbox_commits():
+                    log.warning("dropped %d unpushed sandbox commit(s) from the data repo", n)
+            except GitError as e:
+                log.error("could not check the data repo for sandbox commits: %s", e)
     cat.refresh()
 
     app = FastAPI(title="labcat", docs_url=None, redoc_url=None)

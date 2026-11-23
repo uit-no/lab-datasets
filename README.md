@@ -104,7 +104,9 @@ Before the first deployment:
    slot settings*, so they stay with their slot when staging and production are
    swapped. On the staging slot, set `LABCAT_BASE_URL` to the staging address and
    `LABCAT_SANDBOX=1`: changes made there are never pushed, and each sync resets
-   its checkout to the GitHub version. Register the callback URL of both slots
+   its checkout to the GitHub version. A swap also swaps the slots' files, so at
+   startup production drops unpushed sandbox commits, and staging first uploads
+   any real commits it received before resetting. Register the callback URL of both slots
    in the Slack app.
 
 ### Git checkout ownership on App Service

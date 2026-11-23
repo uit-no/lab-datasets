@@ -13,6 +13,9 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
+# Committer address of commits made in sandbox mode, so they can be told apart from real ones
+# when a slot swap moves a sandbox checkout into production.
+SANDBOX_EMAIL = "sandbox@lab.local"
 SEP = "\x1f"
 # Answers git's credential requests with the token from the environment, so the token never
 # ends up in a URL, in .git/config or in error messages.
@@ -140,6 +143,36 @@ class GitRepo:
         target = self.path.with_name(f"{self.path.name}.old-{stamp}")
         self.path.rename(target)
         return target
+
+    def unpushed_commits(self) -> list[tuple[str, str, str]]:
+        """(sha, committer name, committer email) of local commits not on the remote, oldest first."""
+        out = self.run("log", "--reverse", f"--format=%H{SEP}%cn{SEP}%ce", "@{upstream}..HEAD", check=False)
+        return [tuple(line.split(SEP)) for line in out.splitlines() if line.strip()]
+
+    def drop_sandbox_commits(self) -> int:
+        """Remove unpushed sandbox commits, keeping all other local commits on top of the remote.
+
+        Returns the number of commits dropped.
+        """
+        if not self.has_remote():
+            return 0
+        self.run("fetch", "--quiet")
+        commits = self.unpushed_commits()
+        keep = [c for c in commits if c[2] != SANDBOX_EMAIL]
+        if len(keep) == len(commits):
+            return 0
+        self.run("reset", "--hard", "--quiet", "@{upstream}")
+        for sha, name, email in keep:
+            try:
+                self.run("cherry-pick", "--allow-empty", sha,
+                         env={"GIT_COMMITTER_NAME": name, "GIT_COMMITTER_EMAIL": email})
+            except GitError:
+                self.run("cherry-pick", "--abort", check=False)
+                raise GitError(
+                    f"could not keep local commit {sha[:7]} while removing sandbox commits; "
+                    "it is still in the reflog"
+                ) from None
+        return len(commits) - len(keep)
 
     def reset_to_remote(self) -> None:
         """Throw away everything local and match the remote (for sandbox copies)."""

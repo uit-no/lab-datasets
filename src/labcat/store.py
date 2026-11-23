@@ -243,13 +243,20 @@ class Catalog:
         """Pull changes from the remote and push anything still waiting (runs every minute)."""
         with self.lock:
             if self.sandbox:
-                if self._sync_step(self.git.reset_to_remote):
+                if self._sync_step(self._sandbox_reset):
                     self.last_sync = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
             elif self._sync_step(self.git.pull):
                 self.last_sync = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
                 if self.git.unpushed():
                     self._sync_step(self.git.push)
             self.refresh()
+
+    def _sandbox_reset(self) -> None:
+        """Upload real commits that came along with a slot swap, then match the remote."""
+        self.git.drop_sandbox_commits()
+        if self.git.unpushed():
+            self.git.push()
+        self.git.reset_to_remote()
 
     def _sync_step(self, step) -> bool:
         try:
