@@ -26,6 +26,8 @@
       <li>{{ icon("check") }} <span><strong>Metadata and links only.</strong> The data itself stays where it is.</span></li>
       <li>{{ icon("check") }} <span><strong>No personal data.</strong> Never enter participant names or other identifying information.</span></li>
       <li>{{ icon("check") }} <span><strong>Everyone can edit.</strong> Every change is saved with who made it and can be undone from the dataset's history.</span></li>
+      {% if data_repo %}<li>{{ icon("check") }} <span><strong>Plain files.</strong> The catalog is stored as YAML files in
+        <a href="{{ data_repo }}" target="_blank" rel="noopener">its GitHub repository</a>.</span></li>{% endif %}
     </ul>
   </section>
 

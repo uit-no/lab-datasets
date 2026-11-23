@@ -151,3 +151,13 @@ def test_same_remote():
     assert same_remote("https://github.com/a/b.git", "https://x:tok@github.com/A/b/")
     assert not same_remote("https://github.com/a/b.git", "https://github.com/a/c.git")
     assert not same_remote(None, "https://github.com/a/b.git")
+
+
+def test_about_links_https_data_repo(cat, repo):
+    from fastapi.testclient import TestClient
+    from labcat.config import Settings
+    from labcat.web import create_app
+
+    git(repo, "remote", "add", "origin", "https://github.com/cogneuro-uit/lab-datasets-data.git")
+    client = TestClient(create_app(Settings(data_dir=repo, user="matthias", pull_interval=0)))
+    assert 'href="https://github.com/cogneuro-uit/lab-datasets-data"' in client.get("/about").text

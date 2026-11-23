@@ -160,7 +160,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/about", response_class=HTMLResponse)
     def about(request: Request):
         statuses = sorted({d.status for d in cat.datasets.values()})
-        return render(request, "about.html", n_datasets=len(cat.datasets), statuses=statuses)
+        remote = cat.git.remote_url()
+        data_repo = remote.removesuffix(".git") if remote and remote.startswith("https://") else None
+        return render(request, "about.html", n_datasets=len(cat.datasets), statuses=statuses, data_repo=data_repo)
 
     @app.middleware("http")
     async def refresh_catalog(request: Request, call_next):
