@@ -67,6 +67,7 @@ def test_admin_page_and_sync_button(repo, remote, tmp_path):
                        follow_redirects=False)
     page = admin.get("/admin").text
     assert "In sync." in page and str(remote) in page and 'href="/admin"' in page
+    assert "How a new version goes live" in page
     assert admin.get("/d/2021-by-hand").status_code == 404
     assert admin.post("/admin/sync").headers["location"] == "/admin"
     assert admin.get("/d/2021-by-hand").status_code == 200

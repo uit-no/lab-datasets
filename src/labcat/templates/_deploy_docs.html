@@ -1,0 +1,54 @@
+{# How this catalog is deployed at UiT. Shown on the admin page. #}
+{% set gh = "https://github.com/uit-no/lab-datasets" %}
+{% set staging = "https://p-resapp-labdata-webapp-staging-bzccdrhzakhna4gu.westeurope-01.azurewebsites.net" %}
+{% set production = "https://labdata-cogneuro.uit.no" %}
+<section class="card deploy-docs">
+  <h2 class="card-title">{{ icon("server") }} How a new version goes live</h2>
+  <p>The app runs on Azure App Service (<span class="mono">p-resapp-labdata-webapp</span>, run by UiT IT, contact Rolf Andersen)
+     with two slots: <strong>staging</strong> for testing and <strong>production</strong> for everyone. Pushing to GitHub does not deploy anything by itself.</p>
+  <ol class="steps-list">
+    <li><strong>Push</strong> the code to <span class="mono">main</span> of <a href="{{ gh }}" target="_blank" rel="noopener">uit-no/lab-datasets</a>.</li>
+    <li><strong>Deploy to staging:</strong> run <a href="{{ gh }}/actions/workflows/p-resapp-labdata-deploy.yaml" target="_blank" rel="noopener">Deploy labcat to Azure staging</a>
+        (<em>Run workflow</em>, branch <span class="mono">main</span>). It runs the tests first and takes about 2 minutes.</li>
+    <li><strong>Check</strong> <a href="{{ staging }}" target="_blank" rel="noopener">staging</a>: it shows a yellow “Test copy” banner. Look around, but
+        <strong>don't edit</strong>: the swap takes staging's files along, so test edits would reach production and GitHub.</li>
+    <li><strong>Swap:</strong> run <a href="{{ gh }}/actions/workflows/p-resapp-labdata-swap.yaml" target="_blank" rel="noopener">Swap labcat staging to production</a>.
+        The two slots trade places, code and files included.</li>
+    <li><strong>Check</strong> <a href="{{ production }}" target="_blank" rel="noopener">production</a>: no banner, the catalog is there, and this page says <em>In sync</em>.
+        Staging now runs the previous version until the next deploy.</li>
+  </ol>
+
+  <details class="tip">
+    <summary>{{ icon("sliders-horizontal") }} Server settings (App Service → Environment variables)</summary>
+    <dl class="admin-facts">
+      <dt>Both slots</dt><dd><span class="mono">LABCAT_SLACK_CLIENT_ID</span>, <span class="mono">LABCAT_SLACK_CLIENT_SECRET</span>, <span class="mono">LABCAT_SLACK_TEAM_ID</span>,
+        <span class="mono">LABCAT_SECRET_KEY</span>, <span class="mono">LABCAT_ADMINS</span>, <span class="mono">LABCAT_DATA_REMOTE</span>, <span class="mono">LABCAT_GIT_TOKEN</span></dd>
+      <dt>Per slot</dt><dd><span class="mono">LABCAT_BASE_URL</span> (the slot's own address), <span class="mono">LABCAT_DATA</span>, and <span class="mono">LABCAT_SANDBOX=1</span> on staging only.
+        These are marked as <em>deployment slot settings</em> so they stay put during a swap.</dd>
+    </dl>
+    <p class="small muted">If <span class="mono">LABCAT_DATA</span> holds a checkout of another repository (or none), the app renames it to
+       <span class="mono">….old-&lt;time&gt;</span> at startup and clones the data repository fresh.</p>
+  </details>
+
+  <details class="tip">
+    <summary>{{ icon("circle-help") }} When something goes wrong</summary>
+    <ul class="steps-list">
+      <li><strong>Empty catalog:</strong> look at the sync box above. “No GitHub remote” means <span class="mono">LABCAT_DATA_REMOTE</span> is missing on that slot.</li>
+      <li><strong>Clone or sync fails with 403:</strong> the token lacks access to the data repository. It needs resource owner <span class="mono">cogneuro-uit</span>,
+          the repository <span class="mono">lab-datasets-data</span> and <em>Contents: Read and write</em>.</li>
+      <li><strong>Slack says “redirect_uri did not match”:</strong> add <span class="mono">&lt;address&gt;/auth/callback</span> to the Slack app's redirect URLs and save.</li>
+      <li><strong>App doesn't start:</strong> the Log stream in the Azure portal shows the reason, e.g. a missing setting.</li>
+    </ul>
+  </details>
+
+  <h3 class="small muted">Links</h3>
+  <dl class="admin-facts">
+    <dt>Sites</dt><dd><a href="{{ production }}" target="_blank" rel="noopener">production</a> · <a href="{{ staging }}" target="_blank" rel="noopener">staging</a></dd>
+    <dt>Code</dt><dd><a href="{{ gh }}" target="_blank" rel="noopener">uit-no/lab-datasets</a> · <a href="{{ gh }}/actions" target="_blank" rel="noopener">workflow runs</a></dd>
+    <dt>Data</dt><dd><a href="https://github.com/cogneuro-uit/lab-datasets-data" target="_blank" rel="noopener">cogneuro-uit/lab-datasets-data</a></dd>
+    <dt>Azure</dt><dd><a href="https://portal.azure.com/#browse/Microsoft.Web%2Fsites" target="_blank" rel="noopener">App Services in the portal</a> (needs access from UiT IT)</dd>
+    <dt>Slack app</dt><dd><a href="https://api.slack.com/apps" target="_blank" rel="noopener">api.slack.com/apps</a> (credentials, redirect URLs)</dd>
+    <dt>Git token</dt><dd><a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">your fine-grained tokens</a> ·
+      <a href="https://github.com/organizations/cogneuro-uit/settings/personal-access-tokens" target="_blank" rel="noopener">org token policy</a></dd>
+  </dl>
+</section>
