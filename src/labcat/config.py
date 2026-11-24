@@ -29,6 +29,33 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
+# Every setting, in the order the admin page lists them. Secrets are only shown masked.
+KNOWN_KEYS = (
+    "LABCAT_BASE_URL", "LABCAT_DATA", "LABCAT_DATA_REMOTE", "LABCAT_GIT_TOKEN", "LABCAT_SANDBOX",
+    "LABCAT_PULL_INTERVAL", "LABCAT_ADMINS", "LABCAT_USER", "LABCAT_SLACK_CLIENT_ID",
+    "LABCAT_SLACK_CLIENT_SECRET", "LABCAT_SLACK_TEAM_ID", "LABCAT_SECRET_KEY",
+)
+SECRET_KEYS = {"LABCAT_GIT_TOKEN", "LABCAT_SLACK_CLIENT_SECRET", "LABCAT_SECRET_KEY"}
+# Set by Azure App Service; they tell which slot and instance this is.
+HOST_KEYS = ("WEBSITE_HOSTNAME", "WEBSITE_SITE_NAME", "WEBSITE_INSTANCE_ID")
+
+
+def mask(value: str) -> str:
+    return f"set, ends …{value[-4:]}" if len(value) >= 12 else "set"
+
+
+def env_report(env: dict[str, str]) -> tuple[tuple[str, str | None], ...]:
+    """(name, value shown to admins) for every known setting; None = not set. Secrets are masked."""
+    keys = list(KNOWN_KEYS) + sorted(k for k in env if k.startswith("LABCAT_") and k not in KNOWN_KEYS)
+    rows = []
+    for key in keys + list(HOST_KEYS):
+        value = (env.get(key) or "").strip()
+        if key in HOST_KEYS and not value:
+            continue
+        rows.append((key, (mask(value) if key in SECRET_KEYS else value) if value else None))
+    return tuple(rows)
+
+
 PRODUCTION_REQUIRED = (
     "LABCAT_DATA",
     "LABCAT_SLACK_CLIENT_ID",
@@ -55,6 +82,7 @@ class Settings:
     data_remote: str | None = None
     git_token: str | None = None
     sandbox: bool = False
+    env_report: tuple[tuple[str, str | None], ...] = ()  # for the admin page and the startup log
 
     @property
     def auth_enabled(self) -> bool:
@@ -115,4 +143,5 @@ def load_settings(*, production: bool = False) -> Settings:
         data_remote=get("LABCAT_DATA_REMOTE"),
         git_token=get("LABCAT_GIT_TOKEN"),
         sandbox=(get("LABCAT_SANDBOX") or "").lower() in ("1", "true", "yes"),
+        env_report=env_report(env),
     )

@@ -49,5 +49,18 @@
   </section>
 </div>
 
+<section class="card admin-env">
+  <h2 class="card-title">{{ icon("sliders-horizontal") }} This server</h2>
+  <p class="hint">What this instance actually runs with. Secrets show only their last characters. The same list is written to the log at startup.</p>
+  <div class="admin-grid">
+    <dl class="admin-facts">
+      {% for key, value in env %}<dt class="mono small">{{ key }}</dt><dd class="mono small">{% if value is none %}<span class="muted">not set</span>{% else %}{{ value }}{% endif %}</dd>{% endfor %}
+    </dl>
+    <dl class="admin-facts">
+      {% for key, value in checkout %}<dt>{{ key }}</dt><dd class="mono small">{{ value }}</dd>{% endfor %}
+    </dl>
+  </div>
+</section>
+
 {% include "_deploy_docs.html" %}
 {% endblock %}

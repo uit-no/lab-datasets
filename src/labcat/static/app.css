@@ -728,7 +728,7 @@ a.avatar:hover { text-decoration: none; filter: brightness(0.97); }
 /* ---------- admin ---------- */
 .admin-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
 .admin-grid .card + .card { margin-top: 0; }
-.deploy-docs { margin-top: 16px; }
+.deploy-docs, .admin-env { margin-top: 16px; }
 .deploy-docs .tip { margin: 12px 0; }
 .deploy-docs h3 { margin: 18px 0 8px; }
 @media (max-width: 760px) { .admin-grid { grid-template-columns: 1fr; } }

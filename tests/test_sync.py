@@ -208,3 +208,29 @@ def test_sandbox_commits_are_marked(repo, remote):
     app = create_app(Settings(data_dir=repo, user="matthias", data_remote=str(remote), sandbox=True, pull_interval=0))
     app.state.cat.save_dataset(minimal(), ME, create=True)
     assert git(repo, "log", "-1", "--format=%ce").strip() == SANDBOX_EMAIL
+
+
+def test_env_report_masks_secrets():
+    from labcat.config import env_report
+
+    rows = dict(env_report({"LABCAT_GIT_TOKEN": "github_pat_abcdefgh1234", "LABCAT_DATA": "/home/x",
+                            "LABCAT_EXTRA": "y", "WEBSITE_HOSTNAME": "h.azurewebsites.net"}))
+    assert rows["LABCAT_GIT_TOKEN"] == "set, ends …1234"
+    assert rows["LABCAT_DATA"] == "/home/x" and rows["LABCAT_EXTRA"] == "y"
+    assert rows["LABCAT_SECRET_KEY"] is None and rows["WEBSITE_HOSTNAME"] == "h.azurewebsites.net"
+    assert "WEBSITE_SITE_NAME" not in rows
+
+
+def test_admin_shows_server_settings(repo, remote, monkeypatch):
+    from fastapi.testclient import TestClient
+    from labcat.config import load_settings
+    from labcat.web import create_app
+
+    monkeypatch.chdir(repo.parent)  # no .env here
+    monkeypatch.setenv("LABCAT_DATA", str(repo))
+    monkeypatch.setenv("LABCAT_ADMINS", "matthias")
+    monkeypatch.setenv("LABCAT_GIT_TOKEN", "github_pat_secretsecret9876")
+    monkeypatch.setenv("LABCAT_PULL_INTERVAL", "0")
+    page = TestClient(create_app(load_settings())).get("/admin").text
+    assert "This server" in page and "set, ends …9876" in page and "secretsecret" not in page
+    assert "Datasets loaded" in page

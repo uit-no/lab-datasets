@@ -53,6 +53,7 @@ def time_ago(iso: str) -> str:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
+    log.info("settings: %s", ", ".join(f"{k}={v if v is not None else '(not set)'}" for k, v in settings.env_report))
     committer_email = SANDBOX_EMAIL if settings.sandbox else settings.committer_email
     git = GitRepo(settings.data_dir, settings.committer_name, committer_email, settings.git_token)
     if settings.data_remote and git.is_repo() and not same_remote(git.remote_url(), settings.data_remote):
@@ -525,7 +526,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             remote=git.remote_url(), unpushed=git.unpushed() if git.has_remote() else 0,
             last_sync=cat.last_sync, interval=settings.pull_interval,
             admins=[cat.person(a) or a for a in settings.admins],
+            env=settings.env_report, checkout=checkout_report(),
         )
+
+    def checkout_report() -> list[tuple[str, str]]:
+        """Facts about the data checkout, for finding out why a catalog is empty."""
+        d = settings.data_dir
+        old = sorted(p.name for p in d.parent.glob(f"{d.name}.old-*"))
+        head = git.head()
+        upstream = git.run("rev-parse", "--verify", "-q", "@{upstream}", check=False).strip()
+        return [
+            ("Folder", str(d)),
+            ("Git checkout", "yes" if git.is_repo() else "no"),
+            ("Remote", git.remote_url() or "none"),
+            ("Matches LABCAT_DATA_REMOTE", "not set" if not settings.data_remote
+                else "yes" if same_remote(git.remote_url(), settings.data_remote) else "no"),
+            ("Local commit", head[:7] if head else "none (empty repo)"),
+            ("GitHub commit (last fetched)", upstream[:7] or "unknown"),
+            ("Datasets loaded", str(len(cat.datasets))),
+            ("Earlier folders moved aside", ", ".join(old) or "none"),
+        ]
 
     @app.post("/admin/sync")
     def admin_sync(request: Request):
@@ -599,4 +619,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 
 def app_factory() -> FastAPI:
+    # uvicorn only sets up its own loggers; without this, labcat's info lines never reach the log
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     return create_app(load_settings(production=True))
