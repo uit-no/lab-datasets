@@ -50,7 +50,14 @@
 </div>
 
 <section class="card admin-env">
-  <h2 class="card-title">{{ icon("sliders-horizontal") }} This server</h2>
+  {% set report -%}
+    {% for key, value in env %}{{ key }}={{ "(not set)" if value is none else value }}
+{% endfor %}
+{% for key, value in checkout %}{{ key }}: {{ value }}
+{% endfor %}
+  {%- endset %}
+  <h2 class="card-title">{{ icon("sliders-horizontal") }} This server
+    <button type="button" class="btn btn-sm btn-ghost card-title-link" data-copy="{{ report }}">{{ icon("copy") }} Copy</button></h2>
   <p class="hint">What this instance actually runs with. Secrets show only their last characters. The same list is written to the log at startup.</p>
   <div class="admin-grid">
     <dl class="admin-facts">

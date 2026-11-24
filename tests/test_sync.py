@@ -234,3 +234,4 @@ def test_admin_shows_server_settings(repo, remote, monkeypatch):
     page = TestClient(create_app(load_settings())).get("/admin").text
     assert "This server" in page and "set, ends …9876" in page and "secretsecret" not in page
     assert "Datasets loaded" in page
+    assert "LABCAT_GIT_TOKEN=set, ends …9876\n" in __import__("html").unescape(page)
