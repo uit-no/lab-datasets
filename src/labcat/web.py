@@ -69,11 +69,19 @@ async def read_form(request: Request) -> FormData:
     """
     form = await request.form()
     packed = form.get("_enc")
-    if not isinstance(packed, str):
-        return form
+    return FormData(unpack(packed)) if isinstance(packed, str) else form
+
+
+def read_query(request: Request) -> dict[str, str]:
+    """Query parameters of the lookups, packed like forms (see `read_form`)."""
+    packed = request.query_params.get("_enc")
+    return dict(unpack(packed)) if packed is not None else dict(request.query_params)
+
+
+def unpack(packed: str) -> list[tuple[str, str]]:
     try:
         pairs = json.loads(base64.urlsafe_b64decode(packed + "=" * (-len(packed) % 4)))
-        return FormData([(str(k), str(v)) for k, v in pairs])
+        return [(str(k), str(v)) for k, v in pairs]
     except (ValueError, TypeError) as e:
         raise HTTPException(400, "The form data could not be read.") from e
 
@@ -613,11 +621,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # --- small APIs used by the forms ------------------------------------
     @app.get("/api/doi")
-    def api_doi(q: str):
-        return doi.lookup(q)
+    def api_doi(request: Request):
+        return doi.lookup(read_query(request).get("q", ""))
 
     @app.get("/api/suggest-id")
-    def api_suggest_id(title: str = "", year: str = ""):
+    def api_suggest_id(request: Request):
+        params = read_query(request)
+        title, year = params.get("title", ""), params.get("year", "")
         year = year if re.fullmatch(r"\d{4}", year or "") else str(dt.date.today().year)
         slug = slugify(title)
         if not slug:
@@ -629,7 +639,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"id": cand, "available": True}
 
     @app.get("/api/check-id")
-    def api_check_id(id: str):
+    def api_check_id(request: Request):
+        id = read_query(request).get("id", "")
         if not re.fullmatch(ID_PATTERN, id):
             return {"ok": False, "message": "Use YYYY-short-name: lowercase letters, digits and dashes."}
         if id in cat.datasets:

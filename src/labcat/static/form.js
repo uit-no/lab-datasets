@@ -142,8 +142,7 @@
       status.textContent = "Looking up…";
       btn.disabled = true;
       try {
-        const r = await fetch("/api/doi?q=" + encodeURIComponent(q));
-        const d = await r.json();
+        const d = await window.apiGet("/api/doi", { q });
         if (d.doi) doiInput.value = d.doi;
         if (d.error) { status.className = "doi-status small bad"; status.textContent = d.error; return; }
         for (const k of ["title", "authors", "venue", "year", "url"]) {
@@ -183,14 +182,13 @@
     const show = (ok, msg) => { stateEl.className = "id-state small " + (ok ? "ok" : "bad"); stateEl.innerHTML = (ok ? icon("circle-check") : icon("triangle-alert")) + " " + esc(msg); };
     const suggest = debounce(async () => {
       if (idInput.dataset.touched) return;
-      const r = await fetch(`/api/suggest-id?title=${encodeURIComponent(title.value)}&year=${encodeURIComponent(year.value)}`);
-      const d = await r.json();
+      const d = await window.apiGet("/api/suggest-id", { title: title.value, year: year.value });
       idInput.value = d.id;
       if (d.id) show(true, "Available"); else stateEl.textContent = "";
     }, 250);
     const check = debounce(async () => {
       if (!idInput.value) { stateEl.textContent = ""; return; }
-      const d = await (await fetch("/api/check-id?id=" + encodeURIComponent(idInput.value))).json();
+      const d = await window.apiGet("/api/check-id", { id: idInput.value });
       show(d.ok, d.message);
     }, 300);
     title.addEventListener("input", suggest);

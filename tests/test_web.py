@@ -220,3 +220,13 @@ def test_import_edit_draft(client):
     assert "Renamed by draft" in client.get("/d/2020-test-study").text
     gone = draft(fields, dataset="2020-gone")
     assert "doesn" in client.post("/new/import/check", data={"yaml": gone}).text
+
+
+def test_encoded_lookups(client):
+    def enc(params):
+        return {"_enc": packed(list(params.items()))["_enc"]}
+
+    r = client.get("/api/suggest-id", params=enc({"title": "<script>alert(1)</script> pupil", "year": "2024"}))
+    assert r.json()["id"] == "2024-script-alert-1-script"
+    assert client.get("/api/check-id", params=enc({"id": "2024-new-one"})).json()["ok"] is True
+    assert client.get("/api/check-id", params={"_enc": "%%%"}).status_code == 400

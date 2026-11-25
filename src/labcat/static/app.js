@@ -103,8 +103,9 @@
   // Forms marked data-encode send their fields packed into one `_enc` field
   // (base64url of JSON [name, value] pairs). The firewall in front of the app
   // otherwise blocks free text that looks like SQL, shell commands or HTML.
-  const pack = (fd) => {
-    const pairs = [...fd.entries()].filter(([, v]) => typeof v === "string");
+  // The lookups (window.apiGet) pack their query parameters the same way.
+  const textPairs = (fd) => [...fd.entries()].filter(([, v]) => typeof v === "string");
+  const pack = (pairs) => {
     const bytes = new TextEncoder().encode(JSON.stringify(pairs));
     let bin = "";
     for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
@@ -112,9 +113,10 @@
   };
   window.packForm = (fd) => {
     const out = new FormData();
-    out.set("_enc", pack(fd));
+    out.set("_enc", pack(textPairs(fd)));
     return out;
   };
+  window.apiGet = async (path, params) => (await fetch(`${path}?_enc=${pack(Object.entries(params))}`)).json();
   document.addEventListener("submit", (e) => {
     const form = e.target;
     if (e.defaultPrevented || !form.matches("form[data-encode]")) return;
@@ -122,14 +124,14 @@
     const fd = new FormData(form);
     if (e.submitter?.name) fd.append(e.submitter.name, e.submitter.value);
     const packed = Object.assign(document.createElement("form"), { method: "post", action: form.action, hidden: true });
-    packed.append(Object.assign(document.createElement("input"), { type: "hidden", name: "_enc", value: pack(fd) }));
+    packed.append(Object.assign(document.createElement("input"), { type: "hidden", name: "_enc", value: pack(textPairs(fd)) }));
     document.body.append(packed);
     packed.submit();
   });
   document.addEventListener("htmx:configRequest", (e) => {
     const fd = e.detail.formData;
     if (!fd || !e.detail.elt.closest("[data-encode]")) return;
-    const value = pack(fd);
+    const value = pack(textPairs(fd));
     for (const k of new Set(fd.keys())) fd.delete(k);
     fd.set("_enc", value);
   });
