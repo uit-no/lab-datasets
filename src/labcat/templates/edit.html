@@ -38,6 +38,7 @@
 {% endif %}
 
 <form method="post" class="dsform mode-{{ mode }}" data-mode="{{ mode }}" novalidate data-encode
+      data-dataset-id="{{ ds.id if ds else '' }}"
       action="{{ '/d/' ~ ds.id ~ '/edit' if mode == 'edit' else '/new' }}" id="dsform">
   <input type="hidden" name="_mode" value="{{ mode }}">
   {% if base_sha %}<input type="hidden" name="_base_sha" value="{{ base_sha }}">{% endif %}
@@ -270,17 +271,20 @@
       <button type="button" class="btn btn-ghost" data-prev>{{ icon("chevron-left") }} Back</button>
       <span class="step-count small muted" data-step-count></span>
       <span class="spacer"></span>
+      <button type="button" class="btn btn-ghost" data-download-draft title="Save what you have entered as a file, e.g. if saving fails. It can be loaded again on the Import page.">{{ icon("download") }} <span>Download draft</span></button>
       <button type="submit" class="btn" data-save-early title="Create the dataset with what you have entered so far">{{ icon("save") }} <span>Save &amp; finish later</span></button>
       <button type="button" class="btn btn-primary" data-next>Next {{ icon("chevron-right") }}</button>
       <button type="submit" class="btn btn-primary" data-finish hidden>{{ icon("check") }} Create dataset</button>
       {% elif mode == "quick" %}
       <a class="btn btn-ghost" href="/new">Cancel</a>
       <span class="spacer"></span>
+      <button type="button" class="btn btn-ghost" data-download-draft title="Save what you have entered as a file, e.g. if saving fails. It can be loaded again on the Import page.">{{ icon("download") }} <span>Download draft</span></button>
       <button type="submit" class="btn btn-primary">{{ icon("check") }} Create placeholder</button>
       {% else %}
       <a class="btn btn-ghost" href="/d/{{ ds.id }}">Cancel</a>
       <span class="spacer"></span>
       <span class="small muted unsaved" data-unsaved hidden>Unsaved changes</span>
+      <button type="button" class="btn btn-ghost" data-download-draft title="Save what you have entered as a file, e.g. if saving fails. It can be loaded again on the Import page.">{{ icon("download") }} <span>Download draft</span></button>
       <button type="submit" class="btn btn-primary">{{ icon("save") }} Save changes</button>
       {% endif %}
     </div>

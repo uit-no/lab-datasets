@@ -43,6 +43,12 @@ def slugify(text: str, max_words: int = 4) -> str:
     return "-".join(keep[:max_words])
 
 
+def fill_id(data: dict, year: str | None) -> None:
+    """New datasets without an ID get one from the year and title."""
+    if not data.get("id") and data.get("title"):
+        data["id"] = f"{year or dt.date.today().year}-{slugify(data['title'])}"
+
+
 def time_ago(iso: str) -> str:
     then = dt.datetime.fromisoformat(iso)
     secs = (dt.datetime.now(then.tzinfo) - then).total_seconds()
@@ -381,11 +387,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def edit_save(request: Request, dataset_id: str):
         ds = get_ds(dataset_id)
         form = await read_form(request)
-        items = list(form.multi_items())
+        return save_edit(request, ds, list(form.multi_items()))
+
+    def save_edit(request: Request, ds: Dataset, items: list[tuple[str, str]]):
+        """Save the edit form's fields (also used for drafts loaded on the import page)."""
+        dataset_id = ds.id
         data = forms.parse_dataset_form(items)
         data["id"] = dataset_id
-        base_sha = form.get("_base_sha") or None
-        prefer_mine = form.get("_resolve") == "mine"
+        fields = dict(items)
+        base_sha = fields.get("_base_sha") or None
+        prefer_mine = fields.get("_resolve") == "mine"
         try:
             res = cat.save_dataset(data, current_user(request), base_sha=base_sha, prefer_mine=prefer_mine)
         except StoreError as e:
@@ -419,8 +430,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         form = await read_form(request)
         mode = form.get("_mode") if form.get("_mode") in ("wizard", "quick") else "wizard"
         data = forms.parse_dataset_form(list(form.multi_items()))
-        if not data.get("id") and data.get("title"):
-            data["id"] = f"{form.get('_year') or dt.date.today().year}-{slugify(data['title'])}"
+        fill_id(data, form.get("_year"))
         try:
             res = cat.save_dataset(data, current_user(request), create=True)
         except StoreError as e:
@@ -442,14 +452,35 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return {"ok": False, "message": "This is not valid YAML.", "errors": {"yaml": str(e).splitlines()[0]}}
         if not isinstance(data, dict):
             return {"ok": False, "message": "The YAML should describe one dataset (a mapping with id, title, …).", "errors": {}}
+        if "labcat_draft" in data:
+            return check_draft(data)
+        return check_data(data)
+
+    def check_draft(draft: dict) -> dict:
+        """A draft downloaded from the dataset form: its fields as they would have been submitted."""
+        fields = draft.get("fields")
+        if not (isinstance(fields, list) and all(isinstance(f, list) and len(f) == 2 for f in fields)):
+            return {"ok": False, "message": "This draft file is damaged: its fields can't be read.", "errors": {}}
+        items = [(str(k), "" if v is None else str(v)) for k, v in fields]
+        data = forms.parse_dataset_form(items)
+        edit_of = draft.get("dataset") or None
+        if edit_of:
+            if edit_of not in cat.datasets:
+                return {"ok": False, "message": f"The dataset this draft was made for ({edit_of}) doesn't exist.", "errors": {}}
+            data["id"] = edit_of
+        else:
+            fill_id(data, dict(items).get("_year"))
+        return check_data(data, edit_of=edit_of, items=items)
+
+    def check_data(data: dict, edit_of: str | None = None, items: list | None = None) -> dict:
         try:
             ds = cat.parse(data)
         except StoreError as e:
             return {"ok": False, "message": str(e), "errors": e.errors, "data": data}
-        if ds.id in cat.datasets:
+        if ds.id in cat.datasets and not edit_of:
             return {"ok": False, "message": "A dataset with this ID already exists.", "errors": {"id": ds.id}, "data": data}
         new_tags = [t for t in ds.content.tags if t not in cat.tags]
-        return {"ok": True, "ds": ds, "new_tags": new_tags, "score": completeness.score(ds)}
+        return {"ok": True, "ds": ds, "new_tags": new_tags, "score": completeness.score(ds), "edit_of": edit_of, "items": items}
 
     @app.post("/new/import/check", response_class=HTMLResponse)
     async def import_check(request: Request):
@@ -464,6 +495,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         result = check_yaml(text)
         if not result["ok"]:
             return render(request, "import.html", status_code=422, text=text, result=result)
+        if result["edit_of"]:
+            return save_edit(request, get_ds(result["edit_of"]), result["items"])
         res = cat.save_dataset(result["ds"].to_yaml_data(), current_user(request), create=True)
         return redirect(f"/d/{res.dataset.id}", "Dataset imported.")
 

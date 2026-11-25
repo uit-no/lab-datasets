@@ -3,7 +3,7 @@
 <div class="banner banner-ok">
   {{ icon("circle-check") }}
   <div>
-    <strong>Looks good.</strong> “{{ result.ds.title }}” <span class="mono">({{ result.ds.id }})</span> {{ status_badge(result.ds.status) }}
+    <strong>Looks good.</strong>{% if result.edit_of %} This draft saves your changes to{% endif %} “{{ result.ds.title }}” <span class="mono">({{ result.ds.id }})</span> {{ status_badge(result.ds.status) }}
     <div class="small">Contact: {{ cat.person_name(result.ds.contact) }} · {{ result.score }}% complete
       {% if result.new_tags %}· new tags will be added: {{ result.new_tags|join(", ") }}{% endif %}</div>
   </div>

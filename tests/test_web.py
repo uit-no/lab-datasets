@@ -188,3 +188,35 @@ def test_encoded_import_and_bad_payload(client):
     assert client.post("/new/import", data=packed([["yaml", yaml]])).status_code == 303
     assert client.post("/new", data={"_enc": "not base64!"}).status_code == 400
     assert client.post("/new", data=packed({"not": "pairs"})).status_code == 400
+
+
+def draft(fields, dataset=None):
+    import json
+
+    return json.dumps({"labcat_draft": 1, "mode": "wizard", "dataset": dataset, "fields": fields})
+
+
+def test_import_new_draft(client):
+    text = draft([["_mode", "wizard"], ["_year", "2022"], ["title", "Drafted study"], ["id", ""],
+                  ["contact", "matthias"], ["content.tags", "memory"], ["locations.0.target", "/data/x"]])
+    assert "Looks good" in client.post("/new/import/check", data={"yaml": text}).text
+    r = client.post("/new/import", data={"yaml": text})
+    assert r.status_code == 303 and r.headers["location"] == "/d/2022-drafted"
+    assert "/data/x" in client.get("/d/2022-drafted").text
+    assert "already exists" in client.post("/new/import/check", data={"yaml": text}).text
+    bad = '{"labcat_draft": 1, "fields": "nope"}'
+    assert "damaged" in client.post("/new/import/check", data={"yaml": bad}).text
+
+
+def test_import_edit_draft(client):
+    client.post("/new", data={"_mode": "quick", "title": "Test study", "id": "2020-test-study", "contact": "matthias"})
+    edit = client.get("/d/2020-test-study/edit").text
+    sha = edit.split('name="_base_sha" value="')[1].split('"')[0]
+    fields = [["_mode", "edit"], ["_base_sha", sha], ["title", "Renamed by draft"], ["contact", "matthias"], ["status", "planned"]]
+    text = draft(fields, dataset="2020-test-study")
+    assert "saves your changes to" in client.post("/new/import/check", data={"yaml": text}).text
+    r = client.post("/new/import", data={"yaml": text})
+    assert r.status_code == 303 and r.headers["location"] == "/d/2020-test-study"
+    assert "Renamed by draft" in client.get("/d/2020-test-study").text
+    gone = draft(fields, dataset="2020-gone")
+    assert "doesn" in client.post("/new/import/check", data={"yaml": gone}).text

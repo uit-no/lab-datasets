@@ -330,6 +330,27 @@
     }));
   }
 
+  // ------------------------------------------------------------- draft download
+  // The fields as they would be submitted, so the entry isn't lost if saving fails.
+  // The Import page takes the file and saves it like the form would have.
+  form.querySelector("[data-download-draft]")?.addEventListener("click", () => {
+    const fields = [...new FormData(form).entries()].filter(([, v]) => typeof v === "string");
+    const datasetId = form.dataset.datasetId || null;
+    const head = { labcat_draft: 1, mode, dataset: datasetId, saved: new Date().toISOString() };
+    const text = JSON.stringify(head, null, 2).replace(/\n}$/,
+      `,\n  "fields": [\n${fields.map((f) => "    " + JSON.stringify(f)).join(",\n")}\n  ]\n}\n`);
+    const id = datasetId || form.querySelector("[data-id-input]")?.value || "dataset";
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(new Blob([text], { type: "application/json" })),
+      download: `${id}-draft.json`,
+    });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    window.toast("Draft downloaded. Load it on the Import page to save it later.");
+  });
+
   // ------------------------------------------------------------- submit
   form.addEventListener("input", markDirty);
   form.addEventListener("change", markDirty);
