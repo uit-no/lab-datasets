@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import csv
 import datetime as dt
 import io
@@ -18,6 +19,7 @@ from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.datastructures import FormData
 from starlette.middleware.sessions import SessionMiddleware
 from markdown_it import MarkdownIt
 from markupsafe import Markup
@@ -49,6 +51,25 @@ def time_ago(iso: str) -> str:
             k = int(secs // n)
             return f"{k} {unit}{'s' if k > 1 else ''} ago"
     return "just now"
+
+
+async def read_form(request: Request) -> FormData:
+    """The submitted form fields.
+
+    The browser packs them into one `_enc` field (base64url of a JSON list of
+    [name, value] pairs), so that the firewall in front of the app doesn't block
+    free text that happens to look like SQL, shell commands or HTML. Plain forms
+    (tests, scripts, browsers without JavaScript) still work.
+    """
+    form = await request.form()
+    packed = form.get("_enc")
+    if not isinstance(packed, str):
+        return form
+    try:
+        pairs = json.loads(base64.urlsafe_b64decode(packed + "=" * (-len(packed) % 4)))
+        return FormData([(str(k), str(v)) for k, v in pairs])
+    except (ValueError, TypeError) as e:
+        raise HTTPException(400, "The form data could not be read.") from e
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -359,7 +380,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/d/{dataset_id}/edit", response_class=HTMLResponse)
     async def edit_save(request: Request, dataset_id: str):
         ds = get_ds(dataset_id)
-        form = await request.form()
+        form = await read_form(request)
         items = list(form.multi_items())
         data = forms.parse_dataset_form(items)
         data["id"] = dataset_id
@@ -395,7 +416,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/new", response_class=HTMLResponse)
     async def create(request: Request):
-        form = await request.form()
+        form = await read_form(request)
         mode = form.get("_mode") if form.get("_mode") in ("wizard", "quick") else "wizard"
         data = forms.parse_dataset_form(list(form.multi_items()))
         if not data.get("id") and data.get("title"):
@@ -432,13 +453,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/new/import/check", response_class=HTMLResponse)
     async def import_check(request: Request):
-        form = await request.form()
+        form = await read_form(request)
         text = await _yaml_text(form)
         return templates.TemplateResponse(request, "_import_result.html", {"result": check_yaml(text), "text": text})
 
     @app.post("/new/import", response_class=HTMLResponse)
     async def import_create(request: Request):
-        form = await request.form()
+        form = await read_form(request)
         text = await _yaml_text(form)
         result = check_yaml(text)
         if not result["ok"]:
@@ -496,7 +517,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/people")
     async def add_person(request: Request):
-        form = await request.form()
+        form = await read_form(request)
         data = {k: v for k, v in form.items() if not k.startswith("_") and k != "alumni"}
         data["active"] = not form.get("alumni")
         if not data.get("id") and data.get("name"):

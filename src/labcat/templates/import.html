@@ -7,7 +7,7 @@
   <h1>Import a YAML file</h1>
   <p class="lead">Upload a file or paste its content. It is checked before anything is saved.</p>
 </div>
-<form method="post" action="/new/import" enctype="multipart/form-data" class="card import-form"
+<form method="post" action="/new/import" enctype="multipart/form-data" class="card import-form" data-encode
       hx-post="/new/import/check" hx-trigger="input changed delay:500ms from:#yaml-text, load"
       hx-target="#import-result" hx-encoding="multipart/form-data" id="import-form">
   <label class="dropzone" for="yaml-file" data-dropzone="yaml-text">

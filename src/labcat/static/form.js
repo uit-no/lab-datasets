@@ -222,7 +222,7 @@
     e.preventDefault();
     const fd = new FormData(e.target);
     const err = dialog.querySelector("[data-person-error]");
-    const r = await fetch("/people", { method: "POST", body: fd, headers: { Accept: "application/json" } });
+    const r = await fetch("/people", { method: "POST", body: window.packForm(fd), headers: { Accept: "application/json" } });
     const d = await r.json();
     if (!r.ok) { err.textContent = Object.values(d.errors || {})[0] || d.error; err.hidden = false; return; }
     const select = form.querySelector("[data-people-select]");

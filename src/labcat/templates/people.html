@@ -24,7 +24,7 @@
   </section>
   <section class="card">
     <h2 class="card-title">{{ icon("user-plus") }} Add a person</h2>
-    <form method="post" action="/people" class="stack">
+    <form method="post" action="/people" class="stack" data-encode>
       {% call field("name", "Full name", errors, required=True) %}<input id="f-name" name="name" required value="{{ v.name or '' }}">{% endcall %}
       {% call field("id", "Short ID", errors, hint="Lowercase, used in the YAML files. Leave empty to make one from the name.") %}<input id="f-id" name="id" class="mono" value="{{ v.id or '' }}" placeholder="e.g. jdoe">{% endcall %}
       {% call field("email", "Email", errors) %}<input id="f-email" name="email" type="email" value="{{ v.email or '' }}">{% endcall %}

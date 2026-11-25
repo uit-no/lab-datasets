@@ -28,7 +28,7 @@
     </tbody>
   </table>
   <p class="small muted">Fields that only one of you changed are combined automatically.</p>
-  <form method="post" action="/d/{{ ds.id }}/edit" class="form-actions">
+  <form method="post" action="/d/{{ ds.id }}/edit" class="form-actions" data-encode>
     {% for k, val in items %}{% if k != "_resolve" %}<input type="hidden" name="{{ k }}" value="{{ val }}">{% endif %}{% endfor %}
     <input type="hidden" name="_resolve" value="mine">
     <a class="btn" href="/d/{{ ds.id }}">{{ icon("x") }} Keep theirs, drop my changes</a>

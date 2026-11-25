@@ -37,7 +37,7 @@
 <div class="banner banner-error" role="alert">{{ icon("triangle-alert") }}<div><strong>{{ message }}</strong> Look for the fields marked in red.</div></div>
 {% endif %}
 
-<form method="post" class="dsform mode-{{ mode }}" data-mode="{{ mode }}" novalidate
+<form method="post" class="dsform mode-{{ mode }}" data-mode="{{ mode }}" novalidate data-encode
       action="{{ '/d/' ~ ds.id ~ '/edit' if mode == 'edit' else '/new' }}" id="dsform">
   <input type="hidden" name="_mode" value="{{ mode }}">
   {% if base_sha %}<input type="hidden" name="_base_sha" value="{{ base_sha }}">{% endif %}

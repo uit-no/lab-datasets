@@ -155,3 +155,36 @@ def test_profile_page(client):
     assert "Recent edits" in me and "Profile study" in me
     assert 'href="/people/matthias"' in client.get("/d/2024-profile").text
     assert client.get("/people/nobody").status_code == 404
+
+
+def packed(pairs):
+    """What the browser sends: all fields in one base64url JSON `_enc` field."""
+    import base64
+    import json
+
+    return {"_enc": base64.urlsafe_b64encode(json.dumps(pairs).encode()).decode().rstrip("=")}
+
+
+def test_encoded_form_create_and_edit(client):
+    text = "SELECT * FROM t; rm -rf ../ <script>alert(1)</script> æøå"
+    r = client.post("/new", data=packed([
+        ["_mode", "quick"], ["title", "Packed study"], ["id", "2020-packed"],
+        ["contact", "matthias"], ["summary", text], ["content.tags", "a"], ["content.tags", "b"],
+    ]))
+    assert r.status_code == 303 and r.headers["location"] == "/d/2020-packed"
+    page = client.get("/d/2020-packed").text
+    assert "æøå" in page and "&lt;script&gt;" in page
+    edit = client.get("/d/2020-packed/edit").text
+    sha = edit.split('name="_base_sha" value="')[1].split('"')[0]
+    r = client.post("/d/2020-packed/edit", data=packed([
+        ["_base_sha", sha], ["title", "Renamed"], ["contact", "matthias"], ["status", "planned"],
+    ]))
+    assert r.status_code == 303 and "Renamed" in client.get("/d/2020-packed").text
+
+
+def test_encoded_import_and_bad_payload(client):
+    yaml = "id: 2019-imported\ntitle: Imported one\ncontact: matthias\nstatus: published\n"
+    assert "Looks good" in client.post("/new/import/check", data=packed([["yaml", yaml]])).text
+    assert client.post("/new/import", data=packed([["yaml", yaml]])).status_code == 303
+    assert client.post("/new", data={"_enc": "not base64!"}).status_code == 400
+    assert client.post("/new", data=packed({"not": "pairs"})).status_code == 400
