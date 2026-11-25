@@ -120,6 +120,21 @@ def test_first_sign_in_adds_person(make_client, repo):
     assert c.get("/").status_code == 303
 
 
+
+def test_session_of_removed_person_shows_login(make_client, repo):
+    """A session whose person was removed (e.g. by a staging reset) must not loop between / and /login."""
+    import subprocess
+
+    c = make_client(info())
+    sign_in(c)
+    subprocess.run(["git", "reset", "--quiet", "--hard", "HEAD~1"], cwd=repo, check=True)
+    assert "ada-lovelace" not in (repo / "people.yaml").read_text()
+    fresh = make_client(info())
+    fresh.cookies = c.cookies
+    assert fresh.get("/").headers["location"] == "/login?next=%2F"
+    assert fresh.get("/login", params={"next": "/"}).status_code == 200
+    assert fresh.get("/").status_code == 303  # still signed out, no loop
+
 def test_sign_in_links_existing_person_by_email(make_client, repo):
     c = make_client(info(sub="U1", name="M. Mittner", email="M@Example.org"))
     assert sign_in(c).status_code == 303

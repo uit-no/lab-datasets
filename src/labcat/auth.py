@@ -61,8 +61,12 @@ def make_router(settings: Settings, cat: Catalog, render, redirect) -> APIRouter
 
     @router.get("/login")
     def login_page(request: Request, next: str = "/", error: str | None = None, signed_out: bool = False):
-        if request.session.get("user"):
+        # Same check as the login gate; otherwise a session for a person that is no
+        # longer in people.yaml (e.g. after a staging reset) redirects in a loop.
+        if cat.person(request.session.get("user")):
             return RedirectResponse(safe_next(next), status_code=303)
+        request.session.pop("user", None)
+        request.session.pop("picture", None)
         return render(request, "login.html", next=safe_next(next), error=error, signed_out=signed_out)
 
     @router.get("/auth/slack")
