@@ -68,11 +68,12 @@
   }
 
   // ---- rendering ----
+  // Marks search terms in the raw text and escapes the pieces, so a term like
+  // "amp" can't land inside an escaped "&amp;".
   function highlight(text, terms) {
-    let out = esc(text);
-    if (!terms.length) return out;
+    if (!terms.length) return esc(text);
     const re = new RegExp("\\b(" + terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi");
-    return out.replace(re, "<mark>$1</mark>");
+    return String(text ?? "").split(re).map((part, i) => (i % 2 ? `<mark>${esc(part)}</mark>` : esc(part))).join("");
   }
   const plainSummary = (s) => s.replace(/[*_`#>\[\]]/g, "").replace(/\(https?:[^)]+\)/g, "");
   const badge = (s) => `<span class="badge status-${s}"><span class="dot"></span>${esc(meta.statuses[s])}</span>`;
